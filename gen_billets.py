@@ -4,22 +4,10 @@ from faker import Faker
 from collections import OrderedDict
 import csv
 
-Faker.seed(19920813)
-
-fake = Faker()
-
-print (fake.name())
-
-# Create CSV of billet data
-csv_fields = ['BIN','UIC','BSC','TITLE','TYPE','RATE','PAYGRD','NEC1','NEC2']
-
-with open('billets.csv', 'w', newline='') as csvfile:
-    datawriter = csv.DictWriter(csvfile, fieldnames=csv_fields, dialect='unix')
-
-    datawriter.writeheader()
+def gen_and_write_billets(datawriter: csv.DictWriter, count: int = 10) -> None:
     row = dict()
 
-    for _ in range(10):
+    for _ in range(count):
         row['BIN'] = 'B%s' % fake.unique.random_int(min=10000000, max=99999999)
         row['UIC'] = 'N%s' % fake.bothify("####?", letters="0123456789A")
         row['BSC'] = 'S%s' % fake.random_int(0, max=99990, step=5)
@@ -57,3 +45,16 @@ with open('billets.csv', 'w', newline='') as csvfile:
         row['NEC2'] = 'N000'
 
         datawriter.writerow(row)
+
+if __name__ == '__main__':
+    Faker.seed(19920813)
+    fake = Faker()
+
+    # Create CSV of billet data
+    csv_fields = ['BIN','UIC','BSC','TITLE','TYPE','RATE','PAYGRD','NEC1','NEC2']
+
+    with open('billets.csv', 'w', newline='') as csvfile:
+        datawriter = csv.DictWriter(csvfile, fieldnames=csv_fields, dialect='unix')
+        datawriter.writeheader()
+
+        gen_and_write_billets(datawriter, 10)
