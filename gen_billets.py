@@ -11,7 +11,7 @@ def gen_and_write_billets(datawriter: csv.DictWriter, count: int = 10) -> None:
     for _ in range(count):
         row['BIN'] = 'B%s' % fake.unique.random_int(min=10000000, max=99999999)
         row['UIC'] = 'N%s' % fake.bothify("####?", letters="0123456789A")
-        row['BSC'] = 'S%s' % fake.random_int(0, max=99990, step=5)
+        row['BSC'] = 'S%05d' % fake.random_int(0, max=99990, step=5)
         row['TITLE'] = fake.job()
         row['TYPE'] = fake.random_element(elements=('SEA','SHR'))
         row['RATE'] = fake.random_elements(
