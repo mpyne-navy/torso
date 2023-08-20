@@ -14,15 +14,15 @@ print (fake.name())
 csv_fields = ['BIN','UIC','BSC','TITLE','TYPE','RATE','PAYGRD','NEC1','NEC2']
 
 with open('billets.csv', 'w', newline='') as csvfile:
-    datawriter = csv.DictWriter(csvfile, fieldnames=csv_fields)
+    datawriter = csv.DictWriter(csvfile, fieldnames=csv_fields, dialect='unix')
 
     datawriter.writeheader()
     row = dict()
 
     for _ in range(10):
-        row['BIN'] = fake.unique.random_int(min=10000000, max=99999999)
-        row['UIC'] = fake.bothify("####?", letters="0123456789A")
-        row['BSC'] = fake.random_int(0, max=99990, step=5)
+        row['BIN'] = 'B%s' % fake.unique.random_int(min=10000000, max=99999999)
+        row['UIC'] = 'N%s' % fake.bothify("####?", letters="0123456789A")
+        row['BSC'] = 'S%s' % fake.random_int(0, max=99990, step=5)
         row['TITLE'] = fake.job()
         row['TYPE'] = fake.random_element(elements=('SEA','SHR'))
         row['RATE'] = fake.random_elements(
@@ -53,7 +53,7 @@ with open('billets.csv', 'w', newline='') as csvfile:
                     ('E-8', 0.02),
                     ('E-9', 0.01),
                 ]), unique=False)[0]
-        row['NEC1'] = '0000'
-        row['NEC2'] = '0000'
+        row['NEC1'] = 'N000'
+        row['NEC2'] = 'N000'
 
         datawriter.writerow(row)
