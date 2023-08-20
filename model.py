@@ -20,7 +20,16 @@ def read_personnel(filename:str = 'personnel.csv') -> None:
         return [row for row in datareader]
 
 def run_model_step(m: datetime.date, billets: list[dict[str, str]], pers: list[dict[str, str]]):
+    print (f"Simulating {m.year}-{m.month:02d} with {len(billets)} billets and {len(pers)} personnel")
+
     # Remove separated Sailors
+    m_date = m.isoformat()
+    seps = [x for x in pers if x["EAOS"] <= m_date]
+    pers = [x for x in pers if x["EAOS"] > m_date]
+
+    for sep in seps:
+        print(f"\tSailor {sep['DODID']} separated this month (EAOS: {sep['EAOS']})")
+
     # Transfer Sailors at PRD (remove billet assignment)
     # Process gains for Sailors en route next assignment (add billet assignment)
     # Process advancements (NWAE or BBA as appropriate)
@@ -28,7 +37,8 @@ def run_model_step(m: datetime.date, billets: list[dict[str, str]], pers: list[d
     # Process AVAILs from students in training, LIMDU, etc.
     # Process MNA cycle (prep or billet/roller pool match as appropriate)
     # Process re-enlistments
-    pass
+
+    return billets, pers
 
 if __name__ == '__main__':
     billets = read_billets()
@@ -51,9 +61,7 @@ if __name__ == '__main__':
     cur_date = today.replace(day=last_day)
 
     for _ in range(10):
-        print(f"Simulating {cur_date.year}-{cur_date.month:02d}")
-
-        run_model_step(cur_date, billets, pers)
+        billets, pers = run_model_step(cur_date, billets, pers)
 
         # Python datetime has easy no way to say "the next month" so calculate
         # it manually.  Relies on cur_date already being the last day of the
