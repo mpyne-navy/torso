@@ -65,7 +65,7 @@ if __name__ == '__main__':
     csv_fields = ['BIN','UIC','BSC','TITLE','TYPE','RATE','PAYGRD','NEC1','NEC2']
 
     with open(args.output, 'w', newline='') as csvfile:
-        datawriter = csv.DictWriter(csvfile, fieldnames=csv_fields, dialect='unix')
+        datawriter = csv.DictWriter(csvfile, fieldnames=csv_fields, dialect='unix', quoting=csv.QUOTE_MINIMAL)
         datawriter.writeheader()
 
         gen_and_write_billets(datawriter, args.count)
