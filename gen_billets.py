@@ -5,7 +5,7 @@ from collections import OrderedDict
 import csv
 import argparse
 
-def gen_and_write_billets(datawriter: csv.DictWriter, count: int = 10) -> None:
+def gen_and_write_billets(fake: Faker, datawriter: csv.DictWriter, count: int) -> None:
     row = dict()
 
     for _ in range(count):
@@ -68,4 +68,4 @@ if __name__ == '__main__':
         datawriter = csv.DictWriter(csvfile, fieldnames=csv_fields, dialect='unix', quoting=csv.QUOTE_MINIMAL)
         datawriter.writeheader()
 
-        gen_and_write_billets(datawriter, args.count)
+        gen_and_write_billets(fake, datawriter, args.count)
