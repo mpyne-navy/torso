@@ -2,8 +2,10 @@
 
 import csv
 import sys
+import datetime
+import calendar
 
-def read_billets(filename:str = 'billets.csv'):
+def read_billets(filename:str = 'billets.csv') -> None:
     ''' Reads in the given list of billets for the HR model simulation '''
     with open(filename, newline='') as csvfile:
         datareader = csv.DictReader(csvfile)
@@ -11,11 +13,22 @@ def read_billets(filename:str = 'billets.csv'):
 
     raise OSError(f"Could not read {filename}")
 
-def read_personnel(filename:str = 'personnel.csv'):
+def read_personnel(filename:str = 'personnel.csv') -> None:
     ''' Reads in the given list of personnel for the HR model simulation '''
     with open(filename, newline='') as csvfile:
         datareader = csv.DictReader(csvfile)
         return [row for row in datareader]
+
+def run_model_step(m: datetime.date, billets: list[dict[str, str]], pers: list[dict[str, str]]):
+    # Remove separated Sailors
+    # Transfer Sailors at PRD (remove billet assignment)
+    # Process gains for Sailors en route next assignment (add billet assignment)
+    # Process advancements (NWAE or BBA as appropriate)
+    # Process accessions under current ADP
+    # Process AVAILs from students in training, LIMDU, etc.
+    # Process MNA cycle (prep or billet/roller pool match as appropriate)
+    # Process re-enlistments
+    pass
 
 if __name__ == '__main__':
     billets = read_billets()
@@ -32,5 +45,21 @@ if __name__ == '__main__':
 
     print (f"Read in {len(billets)} billets")
     print (f"Read in {len(pers)} personnel")
+
+    today = datetime.date.today()
+    last_day = calendar.monthrange(today.year, today.month)[1]
+    cur_date = today.replace(day=last_day)
+
+    for _ in range(10):
+        print(f"Simulating {cur_date.year}-{cur_date.month:02d}")
+
+        run_model_step(cur_date, billets, pers)
+
+        # Python datetime has easy no way to say "the next month" so calculate
+        # it manually.  Relies on cur_date already being the last day of the
+        # month
+        cur_date = cur_date + datetime.timedelta(days=1)
+        last_day = calendar.monthrange(cur_date.year, cur_date.month)[1]
+        cur_date = cur_date.replace(day=last_day)
 
     sys.exit(0)
