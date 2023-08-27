@@ -46,7 +46,9 @@ class NavyModel:
 
     def get_roller_pool(self, roll_on_before: datetime.date) -> list[dict[str]]:
         strdate = roll_on_before.isoformat()
+        has_orders = set([x["DODID"] for x in self.assignments])
         rollers = [x for x in self.personnel if x["PRD"] <= strdate]
+        rollers = [x for x in rollers if x["DODID"] not in has_orders]
         return rollers
 
     def get_empty_billets(self, on_after: datetime.date) -> list[str]:
@@ -62,6 +64,47 @@ class NavyModel:
         bin_gaps = ((bins_available - bins_now_filled) | bins_to_be_gapped) - bins_to_be_filled
 
         return list(bin_gaps)
+
+    def sailor_eligible_to_rotate_to(self, roller: dict[str], billet: dict[str]) -> bool:
+        # TODO NEC checks
+        return roller["RATE"] == billet["RATE"] and roller["PGRADE"] == billet["PAYGRD"]
+
+    def assign_sailor_to_billet(self, roller: dict[str], billet: dict[str], detach_on: datetime.date, report_on: datetime.date) -> None:
+        orders = {
+                "DODID": roller["DODID"],
+                "GAIN_BIN": billet["BIN"],
+                "LOSS_BIN": roller["BIN"],
+                "DETACH_DT": detach_on.isoformat(),
+                "GAIN_DT": report_on.isoformat(),
+                }
+        self.assignments.append(orders)
+
+    def run_mna_cycle(self, m: datetime.date) -> None:
+        rollers = self.get_roller_pool(m.replace(year=m.year+1))
+        print (f"\t{len(rollers)} rollers slated to rotate between now and a year from now")
+
+        bins = self.get_empty_billets(m)
+        print (f"\t{len(bins)} gapped billets to fill in MNA")
+
+        billets = [x for x in self.billets if x["BIN"] in bins]
+
+        for billet in billets:
+            # Find matching Sailor in roller pool if possible
+            for roller in rollers:
+                if self.sailor_eligible_to_rotate_to(roller, billet):
+                    detach_dt = datetime.date.fromisoformat(roller["PRD"])
+                    report_dt = next_month(detach_dt)
+                    self.assign_sailor_to_billet(roller, billet, detach_dt, report_dt)
+                    break
+
+        # Look for business logic errors
+        # Look for duplicate orders to same billet
+        gaining_bins = [x["GAIN_BIN"] for x in self.assignments]
+        gain_counts = set()
+        for bin in gaining_bins:
+            if bin in gain_counts:
+                print(f"\tError: *** BIN {bin} IS DUPLICATED IN TABLE OF ASSIGNMENTS!")
+            gain_counts.add(bin)
 
     def pers_name(self, sailor: dict[str]) -> str:
         ''' method to return printable Sailor name '''
@@ -90,12 +133,10 @@ class NavyModel:
         # Process advancements (NWAE or BBA as appropriate)
         # Process accessions under current ADP
         # Process AVAILs from students in training, LIMDU, etc.
-        # Process MNA cycle (prep or billet/roller pool match as appropriate)
-        rollers = self.get_roller_pool(m.replace(year=m.year+1))
-        print (f"\t{len(rollers)} rollers slated to rotate between now and a year from now")
-
-        bins = self.get_empty_billets(m)
-        print (f"\t{len(bins)} gapped billets to fill in MNA")
+        self.run_mna_cycle(m)
+        print ("\t***** ORDERS TO PERSONNEL *****")
+        for orders in self.assignments:
+            print(f"\t\t{orders['DODID']} will rotate to BIN {orders['GAIN_BIN']} on {orders['GAIN_DT']}")
 
         # Process re-enlistments
 
