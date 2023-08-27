@@ -173,7 +173,7 @@ class NavyModel:
         rate     = sailor['RATE']
         short_id = sailor['DODID'][-5:]
         name     = sailor['NAME']
-        return f"{rate} {name}/{short_id}"
+        return f"{rate:3} {name[:18]:18}/{short_id}"
 
     def separate_sailors_at_eaos(self, m: datetime.date) -> None:
         m_date = m.isoformat()
