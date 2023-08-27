@@ -44,12 +44,24 @@ class NavyModel:
         self.personnel   = personnel
         self.assignments = assignments
 
+        # Map BINs to billets and DODIDs to personnel
+        self.by_bins = {x["BIN"]: x for x in self.billets}
+        self.by_id   = {x["DODID"]: x for x in self.personnel}
+
+    def billet(self, bin: str) -> dict[str]:
+        return self.by_bins[bin]
+
+    def sailor(self, id: str) -> dict[str]:
+        return self.by_id[id]
+
     def get_roller_pool(self, roll_on_before: datetime.date) -> list[dict[str]]:
         strdate = roll_on_before.isoformat()
         has_orders = set([x["DODID"] for x in self.assignments])
-        rollers = [x for x in self.personnel if x["PRD"] <= strdate]
-        rollers = [x for x in rollers if x["DODID"] not in has_orders]
-        return rollers
+
+        def can_roll(s: dict[str]) -> bool:
+            return s["ACC"] != 'A400' and s["PRD"] <= strdate and s["DODID"] not in has_orders
+
+        return [x for x in self.personnel if can_roll(x)]
 
     def get_empty_billets(self, on_after: datetime.date) -> list[str]:
         ''' Returns the BINs of empty billets (that are or will be gapped without known replacement) '''
@@ -69,15 +81,39 @@ class NavyModel:
         # TODO NEC checks
         return roller["RATE"] == billet["RATE"] and roller["PGRADE"] == billet["PAYGRD"]
 
-    def assign_sailor_to_billet(self, roller: dict[str], billet: dict[str], detach_on: datetime.date, report_on: datetime.date) -> None:
+    def assign_sailor_to_billet(self, roller: dict[str], billet: dict[str],
+                                m: datetime.date,
+                                detach_on: datetime.date,
+                                report_on: datetime.date) -> None:
         orders = {
                 "DODID": roller["DODID"],
                 "GAIN_BIN": billet["BIN"],
                 "LOSS_BIN": roller["BIN"],
+                "STATUS": "PENDING",
+                "ORDERS_DT": m.isoformat(),
                 "DETACH_DT": detach_on.isoformat(),
                 "GAIN_DT": report_on.isoformat(),
                 }
         self.assignments.append(orders)
+
+    def detach_sailors_at_PRD(self, m: datetime.date) -> None:
+        cur_date = m.isoformat()
+        transients = [x for x in self.assignments if x["DETACH_DT"] <= cur_date and x['STATUS'] == 'PENDING']
+
+        print ("\t***** DETACHING PERSONNEL ON ORDERS *****")
+
+        for act_loss in transients:
+            s = self.sailor(act_loss['DODID'])
+            b = self.billet(act_loss['LOSS_BIN'])
+
+            print (f"\t\tDetached {self.pers_name(s)}")
+
+            act_loss['STATUS'] = 'I/P'
+            s['ACC'] = 'A400' # in transit
+            s['PRD'] = ''
+            s['UIC'] = ''
+            s['BSC'] = '99990'
+            s['BIN'] = ''
 
     def run_mna_cycle(self, m: datetime.date) -> None:
         rollers = self.get_roller_pool(m.replace(year=m.year+1))
@@ -94,7 +130,7 @@ class NavyModel:
                 if self.sailor_eligible_to_rotate_to(roller, billet):
                     detach_dt = datetime.date.fromisoformat(roller["PRD"])
                     report_dt = next_month(detach_dt)
-                    self.assign_sailor_to_billet(roller, billet, detach_dt, report_dt)
+                    self.assign_sailor_to_billet(roller, billet, m, detach_dt, report_dt)
                     break
 
         # Look for business logic errors
@@ -128,15 +164,21 @@ class NavyModel:
         for sep in seps:
             print(f"\t{self.pers_name(sep)} separated this month (EAOS: {sep['EAOS']})")
 
-        # Transfer Sailors at PRD (remove billet assignment)
+        self.detach_sailors_at_PRD(m)
         # Process gains for Sailors en route next assignment (add billet assignment)
         # Process advancements (NWAE or BBA as appropriate)
         # Process accessions under current ADP
         # Process AVAILs from students in training, LIMDU, etc.
         self.run_mna_cycle(m)
-        print ("\t***** ORDERS TO PERSONNEL *****")
+        print ("\t***** PERSONNEL ON ORDERS *****")
         for orders in self.assignments:
-            print(f"\t\t{orders['DODID']} will rotate to BIN {orders['GAIN_BIN']} on {orders['GAIN_DT']}")
+            s = self.sailor(orders['DODID'])
+            pers_id = self.pers_name(s)
+
+            if s["ACC"] == 'A400':
+                print(f"\t\t{pers_id} has detached en route to BIN {orders['GAIN_BIN']} on {orders['GAIN_DT']}")
+            else:
+                print(f"\t\t{pers_id} will rotate to BIN {orders['GAIN_BIN']} on {orders['GAIN_DT']}")
 
         # Process re-enlistments
 
@@ -176,7 +218,7 @@ if __name__ == '__main__':
 
     cur_date = datetime.date.today().replace(day=15)
 
-    for _ in range(20):
+    for _ in range(5):
         m.run_step(cur_date)
         cur_date = next_month(cur_date)
 
