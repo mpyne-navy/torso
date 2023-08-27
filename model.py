@@ -79,6 +79,11 @@ class NavyModel:
 
     def sailor_eligible_to_rotate_to(self, roller: dict[str], billet: dict[str]) -> bool:
         # TODO NEC checks
+        pers_id = roller["DODID"]
+
+        # Can't give them orders twice!
+        if any(filter(lambda x: x["DODID"] == pers_id, self.assignments)):
+            return False
         return roller["RATE"] == billet["RATE"] and roller["PGRADE"] == billet["PAYGRD"]
 
     def assign_sailor_to_billet(self, roller: dict[str], billet: dict[str],
