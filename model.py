@@ -5,6 +5,38 @@ import sys
 import datetime
 import calendar
 
+class NavyModel:
+    ''' Data class to hold model state '''
+    def __init__(self, billets:list, personnel:list, assignments:list = []):
+        self.billets     = billets
+        self.personnel   = personnel
+        self.assignments = assignments
+
+    def run_step(self, m: datetime.date) -> None:
+        ''' Simulates Navy HR operations for the current month '''
+
+        billets = self.billets
+        pers    = self.personnel
+        print (f"Simulating {m.year}-{m.month:02d} with {len(billets)} billets and {len(pers)} personnel")
+
+        # Remove separated Sailors
+        m_date = m.isoformat()
+        seps = [x for x in pers if x["EAOS"] <= m_date]
+        pers = [x for x in pers if x["EAOS"] > m_date]
+
+        for sep in seps:
+            print(f"\tSailor {sep['DODID']} separated this month (EAOS: {sep['EAOS']})")
+
+        # Transfer Sailors at PRD (remove billet assignment)
+        # Process gains for Sailors en route next assignment (add billet assignment)
+        # Process advancements (NWAE or BBA as appropriate)
+        # Process accessions under current ADP
+        # Process AVAILs from students in training, LIMDU, etc.
+        # Process MNA cycle (prep or billet/roller pool match as appropriate)
+        # Process re-enlistments
+
+        self.billets, self.personnel = billets, pers
+
 def read_billets(filename:str = 'billets.csv') -> None:
     ''' Reads in the given list of billets for the HR model simulation '''
     with open(filename, newline='') as csvfile:
@@ -18,27 +50,6 @@ def read_personnel(filename:str = 'personnel.csv') -> None:
     with open(filename, newline='') as csvfile:
         datareader = csv.DictReader(csvfile)
         return [row for row in datareader]
-
-def run_model_step(m: datetime.date, billets: list[dict[str, str]], pers: list[dict[str, str]]):
-    print (f"Simulating {m.year}-{m.month:02d} with {len(billets)} billets and {len(pers)} personnel")
-
-    # Remove separated Sailors
-    m_date = m.isoformat()
-    seps = [x for x in pers if x["EAOS"] <= m_date]
-    pers = [x for x in pers if x["EAOS"] > m_date]
-
-    for sep in seps:
-        print(f"\tSailor {sep['DODID']} separated this month (EAOS: {sep['EAOS']})")
-
-    # Transfer Sailors at PRD (remove billet assignment)
-    # Process gains for Sailors en route next assignment (add billet assignment)
-    # Process advancements (NWAE or BBA as appropriate)
-    # Process accessions under current ADP
-    # Process AVAILs from students in training, LIMDU, etc.
-    # Process MNA cycle (prep or billet/roller pool match as appropriate)
-    # Process re-enlistments
-
-    return billets, pers
 
 if __name__ == '__main__':
     billets = read_billets()
@@ -56,12 +67,14 @@ if __name__ == '__main__':
     print (f"Read in {len(billets)} billets")
     print (f"Read in {len(pers)} personnel")
 
+    m = NavyModel(billets, pers)
+
     today = datetime.date.today()
     last_day = calendar.monthrange(today.year, today.month)[1]
     cur_date = today.replace(day=last_day)
 
-    for _ in range(10):
-        billets, pers = run_model_step(cur_date, billets, pers)
+    for _ in range(20):
+        m.run_step(cur_date)
 
         # Python datetime has easy no way to say "the next month" so calculate
         # it manually.  Relies on cur_date already being the last day of the
