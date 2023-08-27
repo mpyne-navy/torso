@@ -15,7 +15,30 @@ def next_month(d: datetime.date) -> datetime.date:
     return cur_date
 
 class NavyModel:
-    ''' Data class to hold model state '''
+    ''' Data class to hold model state
+
+        Billets is a table of:
+            BIN  UIC  BSC  TITLE  TYPE  RATE  PAYGRD  NEC1  NEC2
+
+            BIN is unique.  UIC/BSC combination is unique.
+
+        Personnel is a table of:
+            DODID  NAME  RATE  PGRADE  NEC1  NEC2  ADSD  EAOS  PRD  UIC  BSC  BIN
+
+            DODID is unique.
+            BIN is unique and is a foreign key relation to Billets table.
+            UIC/BSC combination is unique and is an FK relation to Billets.
+            BIN and UIC/BSC combo should point to the exact same row in Billets.
+            NEC1 and NEC2 should not equal the other except if they are 0000.
+            ADSD should always be ≤ EAOS
+            PRD should always be ≤ EAOS
+
+        Assignments is a table of:
+            DODID  GAIN_BIN  LOSS_BIN  DETACH_DT  GAIN_DT
+
+            DODID is unique.
+            DETACH_DT should always be ≤ GAIN_DT
+    '''
     def __init__(self, billets:list, personnel:list, assignments:list = []):
         self.billets     = billets
         self.personnel   = personnel
@@ -25,6 +48,20 @@ class NavyModel:
         strdate = roll_on_before.isoformat()
         rollers = [x for x in self.personnel if x["PRD"] <= strdate]
         return rollers
+
+    def get_empty_billets(self, on_after: datetime.date) -> list[str]:
+        ''' Returns the BINs of empty billets (that are or will be gapped without known replacement) '''
+        # TODO: Use the on or after date?
+        strdate = on_after.isoformat()
+
+        # TODO: Turn this into a DB query to speedup
+        bins_to_be_gapped = set([x["LOSS_BIN"] for x in self.assignments])
+        bins_to_be_filled = set([x["GAIN_BIN"] for x in self.assignments])
+        bins_now_filled   = set([x["BIN"] for x in self.personnel])
+        bins_available    = set([x["BIN"] for x in self.billets])
+        bin_gaps = ((bins_available - bins_now_filled) | bins_to_be_gapped) - bins_to_be_filled
+
+        return list(bin_gaps)
 
     def pers_name(self, sailor: dict[str]) -> str:
         ''' method to return printable Sailor name '''
@@ -56,6 +93,9 @@ class NavyModel:
         # Process MNA cycle (prep or billet/roller pool match as appropriate)
         rollers = self.get_roller_pool(m.replace(year=m.year+1))
         print (f"\t{len(rollers)} rollers slated to rotate between now and a year from now")
+
+        bins = self.get_empty_billets(m)
+        print (f"\t{len(bins)} gapped billets to fill in MNA")
 
         # Process re-enlistments
 
