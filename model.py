@@ -4,6 +4,7 @@ import csv
 import sys
 import datetime
 import calendar
+import argparse
 
 def next_month(d: datetime.date) -> datetime.date:
     ''' Returns a date one month past the given date'''
@@ -43,10 +44,15 @@ class NavyModel:
         self.billets     = billets
         self.personnel   = personnel
         self.assignments = assignments
+        self.detail      = True
 
         # Map BINs to billets and DODIDs to personnel
         self.by_bins = {x["BIN"]: x for x in self.billets}
         self.by_id   = {x["DODID"]: x for x in self.personnel}
+
+    def show_detail(self, more_detail: bool = True) -> None:
+        self.detail = more_detail
+        pass
 
     def billet(self, bin: str) -> dict[str]:
         return self.by_bins[bin]
@@ -111,7 +117,8 @@ class NavyModel:
             s = self.sailor(act_loss['DODID'])
             b = self.billet(act_loss['LOSS_BIN'])
 
-            print (f"\t\tDetached {self.pers_name(s)} from {b['BIN']}")
+            if self.detail:
+                print (f"\t\tDetached {self.pers_name(s)} from {b['BIN']}")
 
             act_loss['STATUS'] = 'I/P'
             s['ACC'] = 'A400' # in transit
@@ -130,7 +137,8 @@ class NavyModel:
             s = self.sailor(act_gain['DODID'])
             b = self.billet(act_gain['GAIN_BIN'])
 
-            print (f"\t\tGained {self.pers_name(s)} to {b['BIN']}")
+            if self.detail:
+                print (f"\t\tGained {self.pers_name(s)} to {b['BIN']}")
 
             act_gain['STATUS'] = 'GAINED'
             s['ACC'] = 'A100' # On board for duty
@@ -161,7 +169,7 @@ class NavyModel:
                     matched = True
                     break
 
-            if not matched:
+            if not matched and self.detail:
                 print (f"\t\t*** UNABLE TO FIND ROLLER FOR BILLET {billet['BIN']} needing {billet['RATE']}")
 
         # Look for business logic errors
@@ -187,7 +195,8 @@ class NavyModel:
         pers = [x for x in pers if x["EAOS"] > m_date]
 
         for s in seps:
-            print(f"\t{self.pers_name(s)} separated this month (EAOS: {s['EAOS']})")
+            if self.detail:
+                print(f"\t{self.pers_name(s)} separated this month (EAOS: {s['EAOS']})")
             self.assignments = [x for x in self.assignments if x['DODID'] != s['DODID']]
 
         self.personnel = pers
@@ -213,14 +222,15 @@ class NavyModel:
             s = self.sailor(orders['DODID'])
             pers_id = self.pers_name(s)
 
-            if s["ACC"] == 'A400':
-                print(f"\t\t{pers_id} has detached en route to BIN {orders['GAIN_BIN']} on {orders['GAIN_DT']}")
-            else:
-                print(f"\t\t{pers_id} will rotate to BIN {orders['GAIN_BIN']} on {orders['GAIN_DT']}")
+            if self.detail:
+                if s["ACC"] == 'A400':
+                    print(f"\t\t{pers_id} has detached en route to BIN {orders['GAIN_BIN']} on {orders['GAIN_DT']}")
+                else:
+                    print(f"\t\t{pers_id} will rotate to BIN {orders['GAIN_BIN']} on {orders['GAIN_DT']}")
 
         # Process re-enlistments
 
-def read_billets(filename:str = 'billets.csv') -> None:
+def read_billets(filename:str) -> None:
     ''' Reads in the given list of billets for the HR model simulation '''
     with open(filename, newline='') as csvfile:
         datareader = csv.DictReader(csvfile)
@@ -228,20 +238,32 @@ def read_billets(filename:str = 'billets.csv') -> None:
 
     raise OSError(f"Could not read {filename}")
 
-def read_personnel(filename:str = 'personnel.csv') -> None:
+def read_personnel(filename:str) -> None:
     ''' Reads in the given list of personnel for the HR model simulation '''
     with open(filename, newline='') as csvfile:
         datareader = csv.DictReader(csvfile)
         return [row for row in datareader]
 
 if __name__ == '__main__':
-    billets = read_billets()
+    parser = argparse.ArgumentParser(description="Simulates a Navy HR model with recruiting, separation, and personnel distribution and advancement")
+    parser.add_argument('-b', '--billets', default='billets.csv', type=str,
+                        help="Input file for billets")
+    parser.add_argument('-p', '--personnel', default='personnel.csv', type=str,
+                        help="Input file for personnel when model starts")
+    parser.add_argument('-d', '--detail', action="store_true",
+                        help="Turn on individualized reporting for each model step")
+    parser.add_argument('-s', '--random-seed', default=19920813, type=int,
+                        help="Number to use to seed randomness generator")
+
+    args = parser.parse_args()
+
+    billets = read_billets(args.billets)
 
     if len(billets) <= 0:
         print ("Billet file empty")
         sys.exit(1)
 
-    pers    = read_personnel()
+    pers    = read_personnel(args.personnel)
 
     if len(billets) <= 0:
         print ("Personnel file empty")
@@ -251,6 +273,7 @@ if __name__ == '__main__':
     print (f"Read in {len(pers)} personnel")
 
     m = NavyModel(billets, pers)
+    m.show_detail(args.detail)
 
     cur_date = datetime.date.today().replace(day=15)
 
