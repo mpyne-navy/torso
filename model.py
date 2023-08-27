@@ -5,12 +5,26 @@ import sys
 import datetime
 import calendar
 
+def next_month(d: datetime.date) -> datetime.date:
+    ''' Returns a date one month past the given date'''
+    last_day = calendar.monthrange(d.year, d.month)[1]
+    cur_date = d.replace(day=last_day) + datetime.timedelta(days=1)
+
+    # Using 15th of month ensures we can increment year at will
+    cur_date = cur_date.replace(day=15)
+    return cur_date
+
 class NavyModel:
     ''' Data class to hold model state '''
     def __init__(self, billets:list, personnel:list, assignments:list = []):
         self.billets     = billets
         self.personnel   = personnel
         self.assignments = assignments
+
+    def get_roller_pool(self, roll_on_before: datetime.date) -> list[dict[str]]:
+        strdate = roll_on_before.isoformat()
+        rollers = [x for x in self.personnel if x["PRD"] <= strdate]
+        return rollers
 
     def run_step(self, m: datetime.date) -> None:
         ''' Simulates Navy HR operations for the current month '''
@@ -33,6 +47,9 @@ class NavyModel:
         # Process accessions under current ADP
         # Process AVAILs from students in training, LIMDU, etc.
         # Process MNA cycle (prep or billet/roller pool match as appropriate)
+        rollers = self.get_roller_pool(m.replace(year=m.year+1))
+        print (f"\t{len(rollers)} slated to rotate between now and a year from now")
+
         # Process re-enlistments
 
         self.billets, self.personnel = billets, pers
@@ -69,18 +86,10 @@ if __name__ == '__main__':
 
     m = NavyModel(billets, pers)
 
-    today = datetime.date.today()
-    last_day = calendar.monthrange(today.year, today.month)[1]
-    cur_date = today.replace(day=last_day)
+    cur_date = datetime.date.today().replace(day=15)
 
     for _ in range(20):
         m.run_step(cur_date)
-
-        # Python datetime has easy no way to say "the next month" so calculate
-        # it manually.  Relies on cur_date already being the last day of the
-        # month
-        cur_date = cur_date + datetime.timedelta(days=1)
-        last_day = calendar.monthrange(cur_date.year, cur_date.month)[1]
-        cur_date = cur_date.replace(day=last_day)
+        cur_date = next_month(cur_date)
 
     sys.exit(0)
