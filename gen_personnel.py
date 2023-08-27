@@ -38,7 +38,7 @@ def gen_and_write_personnel(fake: Faker, datawriter: csv.DictWriter, billets: li
         # ADSD is harder but for now assume a flat 6 years prior to EAOS
         EAOS = fake.date_between(start_date='today', end_date='+5y')
         PRD  = fake.date_between(start_date='today', end_date=EAOS)
-        ADSD = EAOS.replace(year=EAOS.year - 6)
+        ADSD = fake.date_between(start_date='-20y', end_date=EAOS)
 
         row['EAOS'] = EAOS.isoformat()
         row['PRD']  = PRD.isoformat()
