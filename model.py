@@ -23,7 +23,7 @@ class NavyModel:
             BIN is unique.  UIC/BSC combination is unique.
 
         Personnel is a table of:
-            DODID  NAME  RATE  PGRADE  NEC1  NEC2  ADSD  EAOS  PRD  UIC  BSC  BIN
+            DODID  NAME  RATE  PGRADE  NEC1  NEC2  ADSD  EAOS  PRD  UIC  BSC  BIN  ACC
 
             DODID is unique.
             BIN is unique and is a foreign key relation to Billets table.

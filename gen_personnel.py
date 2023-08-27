@@ -30,6 +30,7 @@ def gen_and_write_personnel(fake: Faker, datawriter: csv.DictWriter, billets: li
         row['PGRADE'] = b['PAYGRD']
         row['NEC1'] = b['NEC1']
         row['NEC2'] = b['NEC2']
+        row['ACC']  = 'A100'
         row['NAME'] = fake.name()
         row['DODID'] = fake.unique.random_int(min=10000000, max=99999999)
 
@@ -78,7 +79,7 @@ if __name__ == '__main__':
     print (f"Read in {len(billets)} billets")
 
     # Create CSV of billet data
-    csv_fields = 'DODID NAME RATE PGRADE NEC1 NEC2 ADSD EAOS PRD UIC BSC BIN'.split(' ')
+    csv_fields = 'DODID NAME RATE PGRADE NEC1 NEC2 ADSD EAOS PRD UIC BSC BIN ACC'.split(' ')
 
     with open(args.output, 'w', newline='') as csvfile:
         datawriter = csv.DictWriter(csvfile, fieldnames=csv_fields, dialect='unix', quoting=csv.QUOTE_MINIMAL)
