@@ -106,7 +106,7 @@ class NavyModel:
             s = self.sailor(act_loss['DODID'])
             b = self.billet(act_loss['LOSS_BIN'])
 
-            print (f"\t\tDetached {self.pers_name(s)}")
+            print (f"\t\tDetached {self.pers_name(s)} from {b['BIN']}")
 
             act_loss['STATUS'] = 'I/P'
             s['ACC'] = 'A400' # in transit
@@ -114,6 +114,27 @@ class NavyModel:
             s['UIC'] = ''
             s['BSC'] = '99990'
             s['BIN'] = ''
+
+    def gain_sailors_at_EDA(self, m: datetime.date) -> None:
+        cur_date = m.isoformat()
+        transients = [x for x in self.assignments if cur_date >= x["GAIN_DT"] and x['STATUS'] == 'I/P']
+
+        print ("\t***** CHECKING-IN ARRIVING PERSONNEL *****")
+
+        for act_gain in transients:
+            s = self.sailor(act_gain['DODID'])
+            b = self.billet(act_gain['GAIN_BIN'])
+
+            print (f"\t\tGained {self.pers_name(s)} to {b['BIN']}")
+
+            act_gain['STATUS'] = 'GAINED'
+            s['ACC'] = 'A100' # On board for duty
+            s['PRD'] = m.replace(year=m.year + 3).isoformat()
+            s['UIC'] = b['UIC']
+            s['BSC'] = b['BSC']
+            s['BIN'] = b['BIN']
+
+        self.assignments = [x for x in self.assignments if x["STATUS"] != 'GAINED']
 
     def run_mna_cycle(self, m: datetime.date) -> None:
         rollers = self.get_roller_pool(m.replace(year=m.year+1))
@@ -126,12 +147,17 @@ class NavyModel:
 
         for billet in billets:
             # Find matching Sailor in roller pool if possible
+            matched = False
             for roller in rollers:
                 if self.sailor_eligible_to_rotate_to(roller, billet):
                     detach_dt = datetime.date.fromisoformat(roller["PRD"])
                     report_dt = next_month(detach_dt)
                     self.assign_sailor_to_billet(roller, billet, m, detach_dt, report_dt)
+                    matched = True
                     break
+
+            if not matched:
+                print (f"\t\t*** UNABLE TO FIND ROLLER FOR BILLET {billet['BIN']} needing {billet['RATE']}")
 
         # Look for business logic errors
         # Look for duplicate orders to same billet
@@ -149,6 +175,18 @@ class NavyModel:
         name     = sailor['NAME']
         return f"{rate} {name}/{short_id}"
 
+    def separate_sailors_at_eaos(self, m: datetime.date) -> None:
+        m_date = m.isoformat()
+        pers = self.personnel
+        seps = [x for x in pers if x["EAOS"] <= m_date]
+        pers = [x for x in pers if x["EAOS"] > m_date]
+
+        for s in seps:
+            print(f"\t{self.pers_name(s)} separated this month (EAOS: {s['EAOS']})")
+            self.assignments = [x for x in self.assignments if x['DODID'] != s['DODID']]
+
+        self.personnel = pers
+
     def run_step(self, m: datetime.date) -> None:
         ''' Simulates Navy HR operations for the current month '''
 
@@ -157,21 +195,16 @@ class NavyModel:
         print (f"Simulating {m.year}-{m.month:02d} with {len(billets)} billets and {len(pers)} personnel")
 
         # Remove separated Sailors
-        m_date = m.isoformat()
-        seps = [x for x in pers if x["EAOS"] <= m_date]
-        pers = [x for x in pers if x["EAOS"] > m_date]
-
-        for sep in seps:
-            print(f"\t{self.pers_name(sep)} separated this month (EAOS: {sep['EAOS']})")
-
+        self.separate_sailors_at_eaos(m)
         self.detach_sailors_at_PRD(m)
-        # Process gains for Sailors en route next assignment (add billet assignment)
+        self.gain_sailors_at_EDA(m)
+
         # Process advancements (NWAE or BBA as appropriate)
         # Process accessions under current ADP
         # Process AVAILs from students in training, LIMDU, etc.
         self.run_mna_cycle(m)
         print ("\t***** PERSONNEL ON ORDERS *****")
-        for orders in self.assignments:
+        for orders in sorted(self.assignments, key=lambda x: x['DETACH_DT']):
             s = self.sailor(orders['DODID'])
             pers_id = self.pers_name(s)
 
@@ -181,8 +214,6 @@ class NavyModel:
                 print(f"\t\t{pers_id} will rotate to BIN {orders['GAIN_BIN']} on {orders['GAIN_DT']}")
 
         # Process re-enlistments
-
-        self.billets, self.personnel = billets, pers
 
 def read_billets(filename:str = 'billets.csv') -> None:
     ''' Reads in the given list of billets for the HR model simulation '''
