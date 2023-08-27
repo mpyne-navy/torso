@@ -26,6 +26,13 @@ class NavyModel:
         rollers = [x for x in self.personnel if x["PRD"] <= strdate]
         return rollers
 
+    def pers_name(self, sailor: dict[str]) -> str:
+        ''' method to return printable Sailor name '''
+        rate     = sailor['RATE']
+        short_id = sailor['DODID'][-5:]
+        name     = sailor['NAME']
+        return f"{rate} {name}/{short_id}"
+
     def run_step(self, m: datetime.date) -> None:
         ''' Simulates Navy HR operations for the current month '''
 
@@ -39,7 +46,7 @@ class NavyModel:
         pers = [x for x in pers if x["EAOS"] > m_date]
 
         for sep in seps:
-            print(f"\tSailor {sep['DODID']} separated this month (EAOS: {sep['EAOS']})")
+            print(f"\t{self.pers_name(sep)} separated this month (EAOS: {sep['EAOS']})")
 
         # Transfer Sailors at PRD (remove billet assignment)
         # Process gains for Sailors en route next assignment (add billet assignment)
@@ -48,7 +55,7 @@ class NavyModel:
         # Process AVAILs from students in training, LIMDU, etc.
         # Process MNA cycle (prep or billet/roller pool match as appropriate)
         rollers = self.get_roller_pool(m.replace(year=m.year+1))
-        print (f"\t{len(rollers)} slated to rotate between now and a year from now")
+        print (f"\t{len(rollers)} rollers slated to rotate between now and a year from now")
 
         # Process re-enlistments
 
