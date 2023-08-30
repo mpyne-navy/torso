@@ -158,7 +158,7 @@ class NavyModel:
         num_matches = 0
         num_gaps    = 0
 
-        billets = [self.billet(x) for x in bins]
+        billets = [self.billet(x) for x in sorted(bins)]
         for billet in billets:
             # Find matching Sailor in roller pool if possible
             matched = False
