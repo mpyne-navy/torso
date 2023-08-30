@@ -110,7 +110,7 @@ class NavyModel:
         cur_date = m.isoformat()
         transients = [x for x in self.assignments if x["DETACH_DT"] <= cur_date and x['STATUS'] == 'PENDING']
 
-        print ("\t***** DETACHING PERSONNEL ON ORDERS *****")
+        print (f"\t***** DETACHING {len(transients)} PERSONNEL ON ORDERS *****")
 
         for act_loss in transients:
             s = self.sailor(act_loss['DODID'])
@@ -130,7 +130,7 @@ class NavyModel:
         cur_date = m.isoformat()
         transients = [x for x in self.assignments if cur_date >= x["GAIN_DT"] and x['STATUS'] == 'I/P']
 
-        print ("\t***** CHECKING-IN ARRIVING PERSONNEL *****")
+        print (f"\t***** CHECKING-IN {len(transients)} ARRIVING PERSONNEL *****")
 
         for act_gain in transients:
             s = self.sailor(act_gain['DODID'])
@@ -146,17 +146,19 @@ class NavyModel:
             s['BSC'] = b['BSC']
             s['BIN'] = b['BIN']
 
+        # Remove gained personnel from list of active orders
         self.assignments = [x for x in self.assignments if x["STATUS"] != 'GAINED']
 
     def run_mna_cycle(self, m: datetime.date) -> None:
         rollers = self.get_roller_pool(m.replace(year=m.year+1))
-        print (f"\t{len(rollers)} rollers slated to rotate between now and a year from now")
-
         bins = self.get_empty_billets(m)
-        print (f"\t{len(bins)} gapped billets to fill in MNA")
 
-        billets = [x for x in self.billets if x["BIN"] in bins]
+        print (f"\t{len(rollers)} rollers slated to rotate to fill {len(bins)} gapped billets in MNA")
 
+        num_matches = 0
+        num_gaps    = 0
+
+        billets = [self.billet(x) for x in bins]
         for billet in billets:
             # Find matching Sailor in roller pool if possible
             matched = False
@@ -166,10 +168,15 @@ class NavyModel:
                     report_dt = next_month(detach_dt)
                     self.assign_sailor_to_billet(roller, billet, m, detach_dt, report_dt)
                     matched = True
+                    num_matches = num_matches + 1
                     break
 
-            if not matched and self.detail:
-                print (f"\t\t*** UNABLE TO FIND ROLLER FOR BILLET {billet['BIN']} needing {billet['RATE']}")
+            if not matched:
+                num_gaps = num_gaps + 1
+                if self.detail:
+                    print (f"\t\t*** UNABLE TO FIND ROLLER FOR BILLET {billet['BIN']} needing {billet['RATE']}")
+
+        print (f"\t\t{num_matches} rollers assigned to billets, {num_gaps} billets left unfilled")
 
         # Look for business logic errors
         # Look for duplicate orders to same billet
@@ -216,12 +223,13 @@ class NavyModel:
         # Process accessions under current ADP
         # Process AVAILs from students in training, LIMDU, etc.
         self.run_mna_cycle(m)
-        print ("\t***** PERSONNEL ON ORDERS *****")
-        for orders in sorted(self.assignments, key=lambda x: x['DETACH_DT']):
-            s = self.sailor(orders['DODID'])
-            pers_id = self.pers_name(s)
 
-            if self.detail:
+        if self.detail:
+            print ("\t***** PERSONNEL ON ORDERS *****")
+            for orders in sorted(self.assignments, key=lambda x: x['DETACH_DT']):
+                s = self.sailor(orders['DODID'])
+                pers_id = self.pers_name(s)
+
                 if s["ACC"] == 'A400':
                     print(f"\t\t{pers_id} has detached en route to BIN {orders['GAIN_BIN']} on {orders['GAIN_DT']}")
                 else:
