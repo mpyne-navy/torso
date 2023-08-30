@@ -71,12 +71,11 @@ class NavyModel:
 
     def get_empty_billets(self, on_after: datetime.date) -> list[str]:
         ''' Returns the BINs of empty billets (that are or will be gapped without known replacement) '''
-        # TODO: Use the on or after date?
         strdate = on_after.isoformat()
 
         # TODO: Turn this into a DB query to speedup
-        bins_to_be_gapped = set([x["LOSS_BIN"] for x in self.assignments])
-        bins_to_be_filled = set([x["GAIN_BIN"] for x in self.assignments])
+        bins_to_be_gapped = set([x["LOSS_BIN"] for x in self.assignments if x["DETACH_DT"] >= strdate])
+        bins_to_be_filled = set([x["GAIN_BIN"] for x in self.assignments if x["GAIN_DT"] >= strdate])
         bins_now_filled   = set([x["BIN"] for x in self.personnel])
         bins_available    = set([x["BIN"] for x in self.billets])
         bin_gaps = ((bins_available - bins_now_filled) | bins_to_be_gapped) - bins_to_be_filled
