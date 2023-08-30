@@ -6,14 +6,17 @@ import datetime
 import calendar
 import argparse
 
-def next_month(d: datetime.date) -> datetime.date:
-    ''' Returns a date one month past the given date'''
-    last_day = calendar.monthrange(d.year, d.month)[1]
-    cur_date = d.replace(day=last_day) + datetime.timedelta(days=1)
-
+def next_month(d: datetime.date, months:int = 1) -> datetime.date:
+    ''' Returns a date the given number of months (default of 1) past the given date.
+        See https://stackoverflow.com/a/63175561
+    '''
+    months_count = d.year * 12 + d.month + months - 1
+    year = months_count // 12
+    month = months_count % 12 + 1
     # Using 15th of month ensures we can increment year at will
-    cur_date = cur_date.replace(day=15)
-    return cur_date
+    day = 15
+
+    return datetime.date(year, month, day)
 
 class NavyModel:
     ''' Data class to hold model state
@@ -49,6 +52,10 @@ class NavyModel:
         # Map BINs to billets and DODIDs to personnel
         self.by_bins = {x["BIN"]: x for x in self.billets}
         self.by_id   = {x["DODID"]: x for x in self.personnel}
+
+        # Find list of all paygrade / rate combos for speed later
+        self.ratings = list(set(tuple((x["RATE"], x["PAYGRD"]) for x in billets)))
+        self.ratings.sort(key=lambda x: (x[1], x[0]), reverse=True)
 
     def show_detail(self, more_detail: bool = True) -> None:
         self.detail = more_detail
@@ -149,6 +156,14 @@ class NavyModel:
         # Remove gained personnel from list of active orders
         self.assignments = [x for x in self.assignments if x["STATUS"] != 'GAINED']
 
+    def num_paygrade_vacancy_on_date(self, m: datetime.date, rate: str, grade: str) -> int:
+        ''' Looks in personnel and billets files to determine how many vacancies
+            are present in a rate and paygrade '''
+        future_date = m.isoformat()
+        num_billets = sum(1 for x in self.billets   if x["RATE"] == rate and x["PAYGRD"] == grade)
+        num_pers    = sum(1 for x in self.personnel if x["RATE"] == rate and x["PGRADE"] == grade and x["EAOS"] > future_date)
+        return num_billets - num_pers
+
     def run_mna_cycle(self, m: datetime.date) -> None:
         rollers = self.get_roller_pool(m.replace(year=m.year+1))
         bins = self.get_empty_billets(m)
@@ -220,6 +235,15 @@ class NavyModel:
         self.gain_sailors_at_EDA(m)
 
         # Process advancements (NWAE or BBA as appropriate)
+        if cur_date.month == 3 or cur_date.month == 9:
+            plan_date = next_month(cur_date, 9) # Project vacancies until end of next cycle 9 months from now
+            for rate, paygrade in self.ratings:
+                if paygrade < 'E-5':
+                    continue # We don't advance to E-4 or below anymore
+                vacancies = self.num_paygrade_vacancy_on_date(plan_date, rate, paygrade)
+                print (f"\t*** There are {vacancies} vacancies in {rate}/{paygrade} on {plan_date}")
+                # TODO: Generate advancement quotas etc here.
+
         # Process accessions under current ADP
         # Process AVAILs from students in training, LIMDU, etc.
         self.run_mna_cycle(m)
@@ -284,7 +308,7 @@ if __name__ == '__main__':
 
     cur_date = datetime.date.today().replace(day=15)
 
-    for _ in range(5):
+    for _ in range(6):
         m.run_step(cur_date)
         cur_date = next_month(cur_date)
 
