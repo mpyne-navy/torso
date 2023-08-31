@@ -276,7 +276,11 @@ def read_personnel(filename:str) -> None:
         return [row for row in datareader]
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Simulates a Navy HR model with recruiting, separation, and personnel distribution and advancement")
+    parser = argparse.ArgumentParser(description="""
+    TORSO: Total Organizational Requirements Simulating Optimizer.
+
+    Simulates a Navy HR model with recruiting, separation, and personnel distribution and advancement
+    """)
     parser.add_argument('-b', '--billets', default='billets.csv', type=str,
                         help="Input file for billets")
     parser.add_argument('-p', '--personnel', default='personnel.csv', type=str,
