@@ -5,6 +5,7 @@ import sys
 import datetime
 import calendar
 import argparse
+import itertools
 
 def next_month(d: datetime.date, months:int = 1) -> datetime.date:
     ''' Returns a date the given number of months (default of 1) past the given date.
@@ -156,13 +157,44 @@ class NavyModel:
         # Remove gained personnel from list of active orders
         self.assignments = [x for x in self.assignments if x["STATUS"] != 'GAINED']
 
-    def num_paygrade_vacancy_on_date(self, m: datetime.date, rate: str, grade: str) -> int:
-        ''' Looks in personnel and billets files to determine how many vacancies
-            are present in a rate and paygrade '''
+    def num_personnel_inventory(self, m: datetime.date, rate: str, grade: str) -> int:
+        ''' Looks in personnel file to return projected inventory on the given date '''
         future_date = m.isoformat()
-        num_billets = sum(1 for x in self.billets   if x["RATE"] == rate and x["PAYGRD"] == grade)
         num_pers    = sum(1 for x in self.personnel if x["RATE"] == rate and x["PGRADE"] == grade and x["EAOS"] > future_date)
+        return num_pers
+
+    def num_paygrade_vacancy_on_date(self, m: datetime.date, rate: str, grade: str) -> int:
+        ''' Looks in personnel and billet files to determine how many vacancies
+            are present in a rate and paygrade '''
+        num_billets = sum(1 for x in self.billets   if x["RATE"] == rate and x["PAYGRD"] == grade)
+        num_pers = self.num_personnel_inventory(m, rate, grade)
         return num_billets - num_pers
+
+    def plan_advancements_for_rate(self, m: datetime.date, rate: str) -> list[int]:
+        ''' Returns a list of advancements to E-5 through E-9 for the cycle ending on the given date. '''
+
+        # E-9 advancements are simply for all vacancies.  More junior paygrades also need to replace
+        # advancements out of that junior paygrade.
+        adv_plan = dict()
+        num_pers_in_rating = dict()
+        num_billets_in_rating = dict()
+
+        grade = 'E-9'
+        num_pers_in_rating[grade] = self.num_personnel_inventory(m, rate, grade)
+        num_billets_in_rating[grade] = sum(1 for x in self.billets if x["RATE"] == rate and x["PAYGRD"] == grade)
+        adv_plan[grade] = max(0, min(num_pers_in_rating[grade], num_billets_in_rating[grade] - num_pers_in_rating[grade]))
+
+        grades = ['E-9', 'E-8', 'E-7', 'E-6', 'E-5']
+
+        for hi_grade, lo_grade in itertools.pairwise(grades):
+            num_pers_in_rating[lo_grade] = self.num_personnel_inventory(m, rate, lo_grade) - adv_plan[hi_grade]
+            num_billets_in_rating[lo_grade] = sum(1 for x in self.billets if x["RATE"] == rate and x["PAYGRD"] == lo_grade)
+            adv_plan[lo_grade] = max(0, min(num_pers_in_rating[lo_grade], num_billets_in_rating[lo_grade] - num_pers_in_rating[lo_grade]))
+
+        advancements = {x:adv_plan[x] for x in grades}
+        print (f"\tAdvancement plan for {rate} on {m.isoformat()}:")
+        print (f"\t\t{advancements}")
+        return advancements
 
     def run_mna_cycle(self, m: datetime.date) -> None:
         rollers = self.get_roller_pool(m.replace(year=m.year+1))
@@ -237,12 +269,9 @@ class NavyModel:
         # Process advancements (NWAE or BBA as appropriate)
         if cur_date.month == 3 or cur_date.month == 9:
             plan_date = next_month(cur_date, 9) # Project vacancies until end of next cycle 9 months from now
-            for rate, paygrade in self.ratings:
-                if paygrade < 'E-5':
-                    continue # We don't advance to E-4 or below anymore
-                vacancies = self.num_paygrade_vacancy_on_date(plan_date, rate, paygrade)
-                print (f"\t*** There are {vacancies} vacancies in {rate}/{paygrade} on {plan_date}")
-                # TODO: Generate advancement quotas etc here.
+            rates = set(x[0] for x in self.ratings) # De-duplicate into list of rates (no paygrades)
+            for rate in rates:
+                advs = self.plan_advancements_for_rate(plan_date, rate)
 
         # Process accessions under current ADP
         # Process AVAILs from students in training, LIMDU, etc.
