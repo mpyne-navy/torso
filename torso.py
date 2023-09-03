@@ -270,8 +270,8 @@ class NavyModel:
         self.gain_sailors_at_EDA(m)
 
         # Process advancements (NWAE or BBA as appropriate)
-        if cur_date.month == 3 or cur_date.month == 9:
-            plan_date = next_month(cur_date, 9) # Project vacancies until end of next cycle 9 months from now
+        if m.month == 3 or m.month == 9:
+            plan_date = next_month(m, 9) # Project vacancies until end of next cycle 9 months from now
             rates = set(x[0] for x in self.ratings) # De-duplicate into list of rates (no paygrades)
             print (f"Advancement plan for {plan_date}")
             for rate in rates:
