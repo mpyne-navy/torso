@@ -315,6 +315,7 @@ if __name__ == '__main__':
 
     Simulates a Navy HR model with recruiting, separation, and personnel distribution and advancement
     """)
+    parser.add_argument('steps', type=int, help="number of months to simulate", default=6, nargs="?")
     parser.add_argument('-b', '--billets', default='billets.csv', type=str,
                         help="Input file for billets")
     parser.add_argument('-p', '--personnel', default='personnel.csv', type=str,
@@ -346,7 +347,7 @@ if __name__ == '__main__':
 
     cur_date = datetime.date.today().replace(day=15)
 
-    for _ in range(6):
+    for _ in range(args.steps):
         m.run_step(cur_date)
         cur_date = next_month(cur_date)
 
