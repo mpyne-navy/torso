@@ -6,6 +6,7 @@ import datetime
 import calendar
 import argparse
 import itertools
+from faker import Faker
 
 def next_month(d: datetime.date, months:int = 1) -> datetime.date:
     ''' Returns a date the given number of months (default of 1) past the given date.
@@ -176,6 +177,11 @@ class NavyModel:
         num_pers = self.num_personnel_inventory(m, rate, grade)
         return num_billets - num_pers
 
+    def lower_paygrade_of(self, pgrade: str) -> str:
+        ''' Return the next lower paygrade. E.g "E-8" becomes "E-7" '''
+        translation_table = str.maketrans('98765432', '87654321')
+        return pgrade.translate(translation_table)
+
     def plan_advancements_for_rate(self, m: datetime.date, rate: str) -> list[int]:
         ''' Returns a list of advancements to E-5 through E-9 for the cycle ending on the given date. '''
 
@@ -199,6 +205,57 @@ class NavyModel:
             adv_plan[lo_grade] = max(0, min(num_pers_in_rating[lo_grade], num_billets_in_rating[lo_grade] - num_pers_in_rating[lo_grade]))
 
         return {x:adv_plan[x] for x in grades}
+
+    def plan_sailor_advancements(self, m: datetime.date) -> None:
+        ''' Build the next advancement plan when we're almost through executing the current plan. '''
+        if m.month not in [3, 9]:
+            return
+
+        plan_date = next_month(m, 9) # Project vacancies until end of next cycle 9 months from now
+        rates = set(x[0] for x in self.ratings) # De-duplicate into list of rates (no paygrades)
+        print (f"Advancement plan for {plan_date}")
+        for rate in rates:
+            self.adv_plan[rate] = self.plan_advancements_for_rate(plan_date, rate)
+            print (f"\t{rate:3}: {self.adv_plan[rate]}")
+
+    def advance_sailors(self, m: datetime.date) -> None:
+        ''' Advance Sailors under the current approved advancements, cycling to next plan if needed. '''
+        if m.month not in [6, 12]:
+            return
+
+        # TODO: Identifying Sailors by name should be done as part of the
+        # advancement plan, not during the actual time of advancement.  And in
+        # practice the advancement happens far later than the selection by
+        # name, but for now we do both at the same time.
+
+        print (f"\t***** ADVANCING SAILORS *****")
+        for rate, adv in self.advancements.items():
+            for grade, num in adv.items():
+                if num == 0: # Skip when no advancements to effect
+                    continue
+
+                # Find Sailors eligible to advance
+                jr_grade = self.lower_paygrade_of(grade)
+                min_TIR = 1 if grade == "E-5" else 3 # Time-in-grade years met?
+                TIR_date = (m.replace(year=m.year - min_TIR)).isoformat()
+
+                sailors = [x for x in self.personnel if x["RATE"] == rate and x["PGRADE"] == jr_grade and x["DOR"] <= TIR_date]
+
+                if num > len(sailors):
+                    print (f"\t\t NOTE: Advancement to {rate:3}/{grade} is eligible-limited!!!")
+                else:
+                    sailors = fake.random_elements(elements=sailors, unique=True, length=num)
+
+                # In real advancement planning it is possible to over-advance but that's not simulated here
+                cur_date = m.isoformat()
+                for x in sailors:
+                    x["DOR"] = cur_date
+                    x["PGRADE"] = grade
+
+                print (f"\t\tAdvanced {len(sailors)}/{num} Sailors in rating {rate} to {grade}")
+
+        self.advancements = self.adv_plan
+        self.adv_plan = dict()
 
     def run_mna_cycle(self, m: datetime.date) -> None:
         rollers = self.get_roller_pool(m.replace(year=m.year+1))
@@ -265,19 +322,11 @@ class NavyModel:
         pers    = self.personnel
         print (f"Simulating {m.year}-{m.month:02d} with {len(billets)} billets and {len(pers)} personnel")
 
-        # Remove separated Sailors
         self.separate_sailors_at_eaos(m)
         self.detach_sailors_at_PRD(m)
         self.gain_sailors_at_EDA(m)
-
-        # Process advancements (NWAE or BBA as appropriate)
-        if m.month == 3 or m.month == 9:
-            plan_date = next_month(m, 9) # Project vacancies until end of next cycle 9 months from now
-            rates = set(x[0] for x in self.ratings) # De-duplicate into list of rates (no paygrades)
-            print (f"Advancement plan for {plan_date}")
-            for rate in rates:
-                self.adv_plan[rate] = self.plan_advancements_for_rate(plan_date, rate)
-                print (f"\t{rate:3}: {self.adv_plan[rate]}")
+        self.plan_sailor_advancements(m)
+        self.advance_sailors(m)
 
         # Process accessions under current ADP
         # Process AVAILs from students in training, LIMDU, etc.
@@ -328,6 +377,9 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    Faker.seed(args.random_seed)
+    fake = Faker()
+
     billets = read_billets(args.billets)
 
     if len(billets) <= 0:
@@ -351,5 +403,19 @@ if __name__ == '__main__':
     for _ in range(args.steps):
         m.run_step(cur_date)
         cur_date = next_month(cur_date)
+
+    # Basic stats
+    billets = {("E-%d" % x): 0 for x in range(3, 10)}
+    for x in m.billets:
+        billets[x["PAYGRD"]] += 1
+
+    inventory = {("E-%d" % x): 0 for x in range(3, 10)}
+    for x in m.personnel:
+        inventory[x["PGRADE"]] += 1
+
+    print (f"As of {cur_date.isoformat()}:")
+    for i in range(3, 10):
+        grade = ("E-%d" % i)
+        print (f"\t{grade} has filled {inventory[grade]} out of {billets[grade]} ({inventory[grade] * 100.0 / billets[grade]:.3f})")
 
     sys.exit(0)
