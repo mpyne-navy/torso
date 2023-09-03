@@ -30,6 +30,20 @@ From there you can run:
 
 * `torso.py` to run the model itself.
 
+# Copying and licensing
+
+This software is open-source, under the [GPL v3](https://choosealicense.com/licenses/gpl-3.0/).
+
+# Endorsements
+
+This is **not affiliated with the U.S. Navy**, the U.S. Department of Defense
+or any U.S. government agency.  It is developed in the author's personal
+capacity on the author's own time and resources, and without the use of any
+non-public or controlled information.
+
+Nothing in this program is endorsed by the U.S. Department of Defense, U.S.
+Navy or any government agency.
+
 # Warning
 
 I cannot stress enough how many pieces are still missing on this, especially
@@ -42,4 +56,4 @@ what each does.
 
 # Author
 
-CDR Mike Pyne
+Michael Pyne
