@@ -1,5 +1,21 @@
 #!/usr/bin/env python
 
+# Generates fake manpower data for torso.py and gen_personnel.py
+#
+# Copyright (C) 2023 Michael Pyne
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, version 3 of the License.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 from faker import Faker
 from collections import OrderedDict
 import csv
@@ -48,7 +64,12 @@ def gen_and_write_billets(fake: Faker, datawriter: csv.DictWriter, count: int) -
         datawriter.writerow(row)
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Generates test data for the billet file in the Navy HR model.")
+    parser = argparse.ArgumentParser(description="Generates test data for the billet file in the Navy HR model.",
+                                     epilog='''Copyright 2023 Michael Pyne. This program comes with ABSOLUTELY NO WARRANTY,
+                                     see the COPYING file for more information.  This is free software, and you are welcome
+                                     to redistribute it under certain conditions;
+                                     '''
+                                     )
     parser.add_argument('-o', '--output', default='billets.csv', type=str,
                         help="Output file for billets")
     parser.add_argument('-c', '--count', default=10, type=int,

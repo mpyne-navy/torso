@@ -1,5 +1,21 @@
 #!/usr/bin/env python
 
+# Simulates Navy HR personnel processes based off of sample manpower data.
+#
+# Copyright (C) 2023 Michael Pyne
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, version 3 of the License.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 import csv
 import sys
 import datetime
@@ -361,10 +377,16 @@ def read_personnel(filename:str) -> None:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="""
-    TORSO: Total Organizational Requirements Simulating Optimizer.
+        TORSO: Total Organizational Requirements Simulating Optimizer.
 
-    Simulates a Navy HR model with recruiting, separation, and personnel distribution and advancement
-    """)
+        Simulates a Navy HR model with recruiting, separation, and personnel distribution and advancement
+        """,
+        epilog='''Copyright 2023 Michael Pyne. This program comes with ABSOLUTELY NO WARRANTY,
+        see the COPYING file for more information.  This is free software, and you are welcome
+        to redistribute it under certain conditions;
+        '''
+    )
+
     parser.add_argument('steps', type=int, help="number of months to simulate", default=6, nargs="?")
     parser.add_argument('-b', '--billets', default='billets.csv', type=str,
                         help="Input file for billets")
