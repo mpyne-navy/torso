@@ -45,9 +45,13 @@ class NavyModel:
             DETACH_DT should always be ≤ GAIN_DT
     '''
     def __init__(self, billets:list, personnel:list, assignments:list = []):
+        # Model data
         self.billets     = billets
         self.personnel   = personnel
         self.assignments = assignments
+        self.adv_plan    = dict()
+
+        # Config option for the model
         self.detail      = True
 
         # Map BINs to billets and DODIDs to personnel
@@ -191,10 +195,7 @@ class NavyModel:
             num_billets_in_rating[lo_grade] = sum(1 for x in self.billets if x["RATE"] == rate and x["PAYGRD"] == lo_grade)
             adv_plan[lo_grade] = max(0, min(num_pers_in_rating[lo_grade], num_billets_in_rating[lo_grade] - num_pers_in_rating[lo_grade]))
 
-        advancements = {x:adv_plan[x] for x in grades}
-        print (f"\tAdvancement plan for {rate} on {m.isoformat()}:")
-        print (f"\t\t{advancements}")
-        return advancements
+        return {x:adv_plan[x] for x in grades}
 
     def run_mna_cycle(self, m: datetime.date) -> None:
         rollers = self.get_roller_pool(m.replace(year=m.year+1))
@@ -270,8 +271,10 @@ class NavyModel:
         if cur_date.month == 3 or cur_date.month == 9:
             plan_date = next_month(cur_date, 9) # Project vacancies until end of next cycle 9 months from now
             rates = set(x[0] for x in self.ratings) # De-duplicate into list of rates (no paygrades)
+            print (f"Advancement plan for {plan_date}")
             for rate in rates:
-                advs = self.plan_advancements_for_rate(plan_date, rate)
+                self.adv_plan[rate] = self.plan_advancements_for_rate(plan_date, rate)
+                print (f"\t{rate:3}: {self.adv_plan[rate]}")
 
         # Process accessions under current ADP
         # Process AVAILs from students in training, LIMDU, etc.
