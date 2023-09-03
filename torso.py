@@ -46,10 +46,11 @@ class NavyModel:
     '''
     def __init__(self, billets:list, personnel:list, assignments:list = []):
         # Model data
-        self.billets     = billets
-        self.personnel   = personnel
-        self.assignments = assignments
-        self.adv_plan    = dict()
+        self.billets      = billets
+        self.personnel    = personnel
+        self.assignments  = assignments
+        self.advancements = dict() # ongoing approved advancements from last adv plan
+        self.adv_plan     = dict() # advancement plan for next advancement cycle
 
         # Config option for the model
         self.detail      = True
@@ -182,9 +183,10 @@ class NavyModel:
         adv_plan = dict()
         num_pers_in_rating = dict()
         num_billets_in_rating = dict()
+        approved_advancements = self.advancements.get(rate, dict())
 
         grade = 'E-9'
-        num_pers_in_rating[grade] = self.num_personnel_inventory(m, rate, grade)
+        num_pers_in_rating[grade] = self.num_personnel_inventory(m, rate, grade) + approved_advancements.get(grade, 0)
         num_billets_in_rating[grade] = sum(1 for x in self.billets if x["RATE"] == rate and x["PAYGRD"] == grade)
         adv_plan[grade] = max(0, min(num_pers_in_rating[grade], num_billets_in_rating[grade] - num_pers_in_rating[grade]))
 
