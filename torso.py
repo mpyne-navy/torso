@@ -28,15 +28,16 @@ class NavyModel:
             BIN is unique.  UIC/BSC combination is unique.
 
         Personnel is a table of:
-            DODID  NAME  RATE  PGRADE  NEC1  NEC2  ADSD  EAOS  PRD  UIC  BSC  BIN  ACC
+            DODID  NAME  RATE  PGRADE  NEC1  NEC2  ADSD  EAOS  PRD  UIC  BSC  BIN  ACC  DOR
 
             DODID is unique.
             BIN is unique and is a foreign key relation to Billets table.
             UIC/BSC combination is unique and is an FK relation to Billets.
             BIN and UIC/BSC combo should point to the exact same row in Billets.
             NEC1 and NEC2 should not equal the other except if they are 0000.
-            ADSD should always be ≤ EAOS
+            ADSD should always be ≤ EAOS (and in general one of the earliest dates)
             PRD should always be ≤ EAOS
+            DOR should always be ≥ ADSD and ≤ EAOS
 
         Assignments is a table of:
             DODID  GAIN_BIN  LOSS_BIN  DETACH_DT  GAIN_DT

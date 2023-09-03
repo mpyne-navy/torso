@@ -39,10 +39,13 @@ def gen_and_write_personnel(fake: Faker, datawriter: csv.DictWriter, billets: li
         EAOS = fake.date_between(start_date='today', end_date='+5y')
         PRD  = fake.date_between(start_date='today', end_date=EAOS)
         ADSD = fake.date_between(start_date='-20y', end_date=EAOS)
+        DOR  = fake.date_between(start_date='-4y', end_date='today')
+        DOR = max(DOR, ADSD)
 
         row['EAOS'] = EAOS.isoformat()
         row['PRD']  = PRD.isoformat()
         row['ADSD'] = ADSD.isoformat()
+        row['DOR']  = DOR.isoformat()
 
         datawriter.writerow(row)
 
@@ -79,7 +82,7 @@ if __name__ == '__main__':
     print (f"Read in {len(billets)} billets")
 
     # Create CSV of billet data
-    csv_fields = 'DODID NAME RATE PGRADE NEC1 NEC2 ADSD EAOS PRD UIC BSC BIN ACC'.split(' ')
+    csv_fields = 'DODID NAME RATE PGRADE NEC1 NEC2 ADSD EAOS PRD UIC BSC BIN ACC DOR'.split(' ')
 
     with open(args.output, 'w', newline='') as csvfile:
         datawriter = csv.DictWriter(csvfile, fieldnames=csv_fields, dialect='unix', quoting=csv.QUOTE_MINIMAL)
